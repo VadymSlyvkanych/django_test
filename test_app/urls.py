@@ -3,5 +3,7 @@ from . import views
 
 
 urlpatterns = [
-    path('hello/<str:name>', views.hello, name='hello'),
+    path('api/tasks/stats/', views.task_stats, name='task-stats'),
+    path('api/tasks/<int:id>/', views.task_detail, name='task-detail'),
+    path('api/tasks/', views.task_list, name='task-list'),
 ]
