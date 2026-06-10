@@ -2,6 +2,7 @@ from django.db.models import Count
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -12,11 +13,31 @@ from .serializers import (
     TaskSerializer,
 )
 
+WEEKDAYS = {
+    'понедельник': 2,
+    'вторник': 3,
+    'среда': 4,
+    'четверг': 5,
+    'пятница': 6,
+    'суббота': 7,
+    'воскресенье': 1,
+}
+
 
 @api_view(['GET', 'POST'])
 def task_list(request):
     if request.method == 'GET':
-        tasks = Task.objects.all()
+        day = request.query_params.get('day')
+        if day:
+            day_num = WEEKDAYS.get(day.lower())
+            if day_num is None:
+                return Response(
+                    {'error': f'Invalid day: {day}.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            tasks = Task.objects.filter(deadline__week_day=day_num)
+        else:
+            tasks = Task.objects.all()
         serializer = TaskSerializer(tasks, many=True)
         return Response(serializer.data)
 
@@ -59,11 +80,26 @@ def task_stats(request):
     })
 
 
+class SubTaskPagination(PageNumberPagination):
+    page_size = 5
+
+
 class SubTaskListCreateView(APIView):
     def get(self, request):
-        subtasks = SubTask.objects.all()
-        serializer = SubTaskSerializer(subtasks, many=True)
-        return Response(serializer.data)
+        subtasks = SubTask.objects.select_related('task').all().order_by('-created_at')
+
+        task_title = request.query_params.get('task_title')
+        if task_title:
+            subtasks = subtasks.filter(task__title__icontains=task_title)
+
+        status_param = request.query_params.get('status')
+        if status_param:
+            subtasks = subtasks.filter(status=status_param)
+
+        paginator = SubTaskPagination()
+        result_page = paginator.paginate_queryset(subtasks, request)
+        serializer = SubTaskSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         serializer = SubTaskCreateSerializer(data=request.data)
