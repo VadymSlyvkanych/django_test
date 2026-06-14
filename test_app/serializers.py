@@ -30,17 +30,26 @@ class SubTaskCreateSerializer(serializers.ModelSerializer):
 class CategoryCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = ['id', 'name']
+        fields = ['id', 'name', 'is_deleted', 'deleted_at']
+        read_only_fields = ['is_deleted', 'deleted_at']
 
     def create(self, validated_data):
-        if Category.objects.filter(name=validated_data['name']).exists():
-            raise serializers.ValidationError(
-                {'name': 'Category with this name already exists.'}
-            )
+        deleted = Category.all_objects.filter(
+            name=validated_data['name'], is_deleted=True
+        ).first()
+        if deleted:
+            deleted.is_deleted = False
+            deleted.deleted_at = None
+            deleted.save(update_fields=['is_deleted', 'deleted_at'])
+            return deleted
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
         name = validated_data.get('name', instance.name)
+        if Category.all_objects.filter(name=name, is_deleted=True).exists():
+            raise serializers.ValidationError(
+                {'name': 'Category with this name is deleted.'}
+            )
         if Category.objects.filter(name=name).exclude(pk=instance.pk).exists():
             raise serializers.ValidationError(
                 {'name': 'Category with this name already exists.'}
