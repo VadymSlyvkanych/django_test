@@ -10,11 +10,15 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
+
 from pathlib import Path
 from environ import Env
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+LOG_DIR = BASE_DIR / 'logs'
+os.makedirs(LOG_DIR, exist_ok=True)
 env = Env()
 Env.read_env(BASE_DIR / '.env')
 
@@ -141,3 +145,55 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+REST_FRAMEWORK = {
+    'DEFAULT_PAGINATION_CLASS': 'test_app.pagination.CustomCursorPagination',
+    'PAGE_SIZE': 6,
+}
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'console': {
+            'format': '[{asctime}] {message}',
+            'style': '{',
+        },
+        'http': {
+            'format': '{asctime} - {levelname} - {message}',
+            'style': '{',
+        },
+        'db': {
+            'format': '{asctime} - {levelname} - {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'console',
+        },
+        'http_file': {
+            'class': 'logging.FileHandler',
+            'filename': LOG_DIR / 'http_logs.log',
+            'formatter': 'http',
+        },
+        'db_file': {
+            'class': 'logging.FileHandler',
+            'filename': LOG_DIR / 'db_logs.log',
+            'formatter': 'db',
+        },
+    },
+    'loggers': {
+        'django.server': {
+            'handlers': ['console', 'http_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['db_file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}

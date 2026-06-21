@@ -2,8 +2,9 @@ from django.db.models import Count
 from django.utils import timezone
 from rest_framework import generics, filters, status, viewsets
 from rest_framework.decorators import action, api_view
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
+
+from .pagination import CategoryCursorPagination, CustomCursorPagination
 
 from .models import Category, SubTask, Task
 from .serializers import (
@@ -44,17 +45,11 @@ def task_stats(request):
     })
 
 
-class SubTaskPagination(PageNumberPagination):
-    page_size = 5
-
-
 class TaskListCreateView(generics.ListCreateAPIView):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [filters.SearchFilter]
     search_fields = ['title', 'description']
-    ordering_fields = ['created_at']
-    ordering = ['-created_at']
 
     def get_queryset(self):
         qs = Task.objects.all()
@@ -81,11 +76,8 @@ class TaskRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 class SubTaskListCreateView(generics.ListCreateAPIView):
     queryset = SubTask.objects.select_related('task').all()
     serializer_class = SubTaskSerializer
-    pagination_class = SubTaskPagination
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [filters.SearchFilter]
     search_fields = ['title', 'description']
-    ordering_fields = ['created_at']
-    ordering = ['-created_at']
 
     def get_queryset(self):
         qs = SubTask.objects.select_related('task').all()
@@ -110,6 +102,7 @@ class SubTaskRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategoryCreateSerializer
+    pagination_class = CategoryCursorPagination
 
     @action(detail=False, methods=['get'])
     def count_tasks(self, request):
