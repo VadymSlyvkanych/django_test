@@ -1,7 +1,8 @@
 from django.db.models import Count
 from django.utils import timezone
 from rest_framework import generics, filters, status, viewsets
-from rest_framework.decorators import action, api_view
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 
 from .pagination import CategoryCursorPagination, CustomCursorPagination
@@ -26,7 +27,9 @@ WEEKDAYS = {
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])  # только авторизованные пользователи
 def task_stats(request):
+    """Возвращает статистику по задачам: общее количество, статусы, просроченные."""
     now = timezone.now()
     total_tasks = Task.objects.count()
     status_counts = dict(
@@ -46,8 +49,14 @@ def task_stats(request):
 
 
 class TaskListCreateView(generics.ListCreateAPIView):
+    """
+    GET  /api/tasks/ — список задач (доступно всем)
+    POST /api/tasks/ — создание задачи (только авторизованным)
+    Поддерживает фильтрацию: ?day=понедельник&status=new&deadline=2026-07-01
+    """
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]  # чтение — всем, запись — авторизованным
     filter_backends = [filters.SearchFilter]
     search_fields = ['title', 'description']
 
@@ -68,14 +77,27 @@ class TaskListCreateView(generics.ListCreateAPIView):
 
 
 class TaskRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    GET    /api/tasks/<id>/ — просмотр задачи (доступно всем)
+    PUT    /api/tasks/<id>/ — полное обновление задачи (только авторизованным)
+    PATCH  /api/tasks/<id>/ — частичное обновление (только авторизованным)
+    DELETE /api/tasks/<id>/ — удаление задачи (только авторизованным)
+    """
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]  # чтение — всем, запись — авторизованным
     lookup_field = 'id'
 
 
 class SubTaskListCreateView(generics.ListCreateAPIView):
+    """
+    GET  /api/subtasks/ — список подзадач (доступно всем)
+    POST /api/subtasks/ — создание подзадачи (только авторизованным)
+    Поддерживает фильтрацию: ?task_title=...&status=new&deadline=...
+    """
     queryset = SubTask.objects.select_related('task').all()
     serializer_class = SubTaskSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]  # чтение — всем, запись — авторизованным
     filter_backends = [filters.SearchFilter]
     search_fields = ['title', 'description']
 
@@ -94,18 +116,35 @@ class SubTaskListCreateView(generics.ListCreateAPIView):
 
 
 class SubTaskRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    GET    /api/subtasks/<id>/ — просмотр подзадачи (доступно всем)
+    PUT    /api/subtasks/<id>/ — полное обновление (только авторизованным)
+    PATCH  /api/subtasks/<id>/ — частичное обновление (только авторизованным)
+    DELETE /api/subtasks/<id>/ — удаление (только авторизованным)
+    """
     queryset = SubTask.objects.all()
     serializer_class = SubTaskSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]  # чтение — всем, запись — авторизованным
     lookup_field = 'id'
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
+    """
+    GET    /api/categories/ — список категорий (доступно всем)
+    POST   /api/categories/ — создание категории (только авторизованным)
+    GET    /api/categories/<id>/ — просмотр категории (доступно всем)
+    PUT    /api/categories/<id>/ — обновление категории (только авторизованным)
+    DELETE /api/categories/<id>/ — удаление категории (только авторизованным)
+    GET    /api/categories/count_tasks/ — количество задач в каждой категории
+    """
     queryset = Category.objects.all()
     serializer_class = CategoryCreateSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]  # чтение — всем, запись — авторизованным
     pagination_class = CategoryCursorPagination
 
     @action(detail=False, methods=['get'])
     def count_tasks(self, request):
+        """Возвращает список категорий с количеством задач в каждой."""
         categories = self.get_queryset().annotate(task_count=Count('tasks'))
         return Response([
             {'id': c.id, 'name': c.name, 'task_count': c.task_count}
