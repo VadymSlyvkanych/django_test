@@ -2,8 +2,10 @@ from django.db.models import Count
 from django.utils import timezone
 from rest_framework import generics, filters, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .pagination import CategoryCursorPagination, CustomCursorPagination
 from .permissions import IsOwnerOrReadOnly
@@ -11,6 +13,8 @@ from .permissions import IsOwnerOrReadOnly
 from .models import Category, SubTask, Task
 from .serializers import (
     CategoryCreateSerializer,
+    LoginSerializer,
+    RegisterSerializer,
     SubTaskCreateSerializer,
     SubTaskSerializer,
     TaskSerializer,
@@ -144,6 +148,57 @@ class SubTaskRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = SubTaskSerializer
     permission_classes = [IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
     lookup_field = 'id'
+
+
+class RegisterView(generics.CreateAPIView):
+    """
+    POST /api/register/ — регистрация нового пользователя.
+    Принимает username, email, password, password_confirm.
+    """
+    serializer_class = RegisterSerializer
+    permission_classes = [AllowAny]
+
+
+class LoginView(APIView):
+    """
+    POST /api/login/ — вход в аккаунт.
+    Принимает username, password.
+    Возвращает JWT access + refresh токены и устанавливает httpOnly cookies.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        refresh = RefreshToken.for_user(user)
+
+        response = Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+        })
+        response.set_cookie('access_token', str(refresh.access_token), httponly=True, samesite='Lax')
+        response.set_cookie('refresh_token', str(refresh), httponly=True, samesite='Lax')
+        return response
+
+
+class LogoutView(APIView):
+    """
+    POST /api/logout/ — выход из аккаунта.
+    Принимает refresh токен. Помещает его в blacklist.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response({'error': 'Refresh token is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception:
+            return Response({'error': 'Invalid or expired refresh token.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CategoryViewSet(viewsets.ModelViewSet):

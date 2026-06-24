@@ -7,6 +7,9 @@ router = DefaultRouter()
 router.register('categories', views.CategoryViewSet, basename='category')
 
 urlpatterns = [
+    path('api/register/', views.RegisterView.as_view(), name='register'),
+    path('api/login/', views.LoginView.as_view(), name='login'),
+    path('api/logout/', views.LogoutView.as_view(), name='logout'),
     path('api/tasks/stats/', views.task_stats, name='task-stats'),
     path('api/tasks/my/', views.UserTaskListView.as_view(), name='user-tasks'),
     path('api/tasks/<int:id>/', views.TaskRetrieveUpdateDestroyView.as_view(), name='task-detail'),
