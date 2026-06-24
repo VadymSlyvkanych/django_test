@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 from rest_framework.response import Response
 
 from .pagination import CategoryCursorPagination, CustomCursorPagination
+from .permissions import IsOwnerOrReadOnly
 
 from .models import Category, SubTask, Task
 from .serializers import (
@@ -56,9 +57,12 @@ class TaskListCreateView(generics.ListCreateAPIView):
     """
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]  # чтение — всем, запись — авторизованным
+    permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [filters.SearchFilter]
     search_fields = ['title', 'description']
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
     def get_queryset(self):
         qs = Task.objects.all()
@@ -76,16 +80,27 @@ class TaskListCreateView(generics.ListCreateAPIView):
         return qs
 
 
+class UserTaskListView(generics.ListAPIView):
+    """
+    GET /api/tasks/my/ — список задач текущего пользователя (только авторизованным)
+    """
+    serializer_class = TaskSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Task.objects.filter(owner=self.request.user)
+
+
 class TaskRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     """
     GET    /api/tasks/<id>/ — просмотр задачи (доступно всем)
-    PUT    /api/tasks/<id>/ — полное обновление задачи (только авторизованным)
-    PATCH  /api/tasks/<id>/ — частичное обновление (только авторизованным)
-    DELETE /api/tasks/<id>/ — удаление задачи (только авторизованным)
+    PUT    /api/tasks/<id>/ — полное обновление (только владелец)
+    PATCH  /api/tasks/<id>/ — частичное обновление (только владелец)
+    DELETE /api/tasks/<id>/ — удаление задачи (только владелец)
     """
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]  # чтение — всем, запись — авторизованным
+    permission_classes = [IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
     lookup_field = 'id'
 
 
@@ -97,9 +112,12 @@ class SubTaskListCreateView(generics.ListCreateAPIView):
     """
     queryset = SubTask.objects.select_related('task').all()
     serializer_class = SubTaskSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]  # чтение — всем, запись — авторизованным
+    permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [filters.SearchFilter]
     search_fields = ['title', 'description']
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
     def get_queryset(self):
         qs = SubTask.objects.select_related('task').all()
@@ -118,13 +136,13 @@ class SubTaskListCreateView(generics.ListCreateAPIView):
 class SubTaskRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     """
     GET    /api/subtasks/<id>/ — просмотр подзадачи (доступно всем)
-    PUT    /api/subtasks/<id>/ — полное обновление (только авторизованным)
-    PATCH  /api/subtasks/<id>/ — частичное обновление (только авторизованным)
-    DELETE /api/subtasks/<id>/ — удаление (только авторизованным)
+    PUT    /api/subtasks/<id>/ — полное обновление (только владелец)
+    PATCH  /api/subtasks/<id>/ — частичное обновление (только владелец)
+    DELETE /api/subtasks/<id>/ — удаление (только владелец)
     """
     queryset = SubTask.objects.all()
     serializer_class = SubTaskSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]  # чтение — всем, запись — авторизованным
+    permission_classes = [IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
     lookup_field = 'id'
 
 

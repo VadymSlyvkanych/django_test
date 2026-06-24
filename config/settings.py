@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
+    'drf_spectacular',
     'test_app.apps.TestAppConfig',
 ]
 
@@ -154,6 +155,7 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'test_app.pagination.CustomCursorPagination',
     'PAGE_SIZE': 5,
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 SIMPLE_JWT = {

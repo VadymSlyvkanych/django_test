@@ -8,6 +8,7 @@ router.register('categories', views.CategoryViewSet, basename='category')
 
 urlpatterns = [
     path('api/tasks/stats/', views.task_stats, name='task-stats'),
+    path('api/tasks/my/', views.UserTaskListView.as_view(), name='user-tasks'),
     path('api/tasks/<int:id>/', views.TaskRetrieveUpdateDestroyView.as_view(), name='task-detail'),
     path('api/tasks/', views.TaskListCreateView.as_view(), name='task-list'),
     path('api/subtasks/', views.SubTaskListCreateView.as_view(), name='subtask-list-create'),
